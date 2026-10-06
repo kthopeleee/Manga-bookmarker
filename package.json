@@ -1,0 +1,26 @@
+{
+  "name": "manga-bookmarker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bookmark manga and light novels from the browser into a private GitHub repo, and browse them on a Pinterest-style board.",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "build:ext": "node scripts/build-extension.mjs",
+    "watch:ext": "node scripts/build-extension.mjs --watch",
+    "zip:ext": "node scripts/build-extension.mjs --zip",
+    "lint:ext": "node scripts/build-extension.mjs && web-ext lint --source-dir dist/firefox",
+    "run:firefox": "node scripts/build-extension.mjs && web-ext run --source-dir dist/firefox",
+    "icons": "node scripts/make-icons.mjs",
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "test": "node --test tests/",
+    "deploy:web": "node scripts/deploy-web.mjs"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.0",
+    "web-ext": "^8.0.0"
+  }
+}

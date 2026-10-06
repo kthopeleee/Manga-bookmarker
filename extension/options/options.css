@@ -1,0 +1,68 @@
+body {
+  width: auto;
+  max-height: none;
+  font-size: 14px;
+}
+
+.page {
+  max-width: 560px;
+  margin: 32px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+}
+
+.lead {
+  color: var(--muted);
+}
+
+.field {
+  margin-top: 16px;
+}
+
+.field label {
+  font-size: 12px;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.actions {
+  position: static;
+  margin-top: 20px;
+}
+
+.box {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.box p {
+  margin-top: 0;
+}
+
+.help {
+  margin-top: 28px;
+  color: var(--text);
+}
+
+.help li {
+  margin: 6px 0;
+}
+
+code {
+  background: var(--surface);
+  padding: 1px 4px;
+  border-radius: 4px;
+}

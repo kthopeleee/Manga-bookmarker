@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manga Bookmarker settings</title>
+    <link rel="stylesheet" href="../popup/popup.css" />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1><img src="../icons/icon-48.png" alt="" width="28" height="28" /> Manga Bookmarker</h1>
+      <p class="lead">
+        Your library is stored in a private GitHub repository that you own. Create the repo and a token once,
+        paste them here, and every bookmark is saved straight into it.
+      </p>
+
+      <form id="form">
+        <div class="field">
+          <label for="owner">GitHub username</label>
+          <input id="owner" name="owner" autocomplete="username" placeholder="your-github-name" required />
+        </div>
+        <div class="field">
+          <label for="repo">Data repo name</label>
+          <input id="repo" name="repo" placeholder="manga-library-data" required />
+        </div>
+        <div class="field">
+          <label for="token">Access token</label>
+          <input id="token" name="token" type="password" autocomplete="off" placeholder="github_pat_…" required />
+          <p class="hint">
+            A fine-grained token with access to <em>only</em> the data repo and the permission
+            <strong>Contents: Read and write</strong>. It stays in this browser and is only sent to api.github.com.
+          </p>
+        </div>
+        <div class="field">
+          <label for="siteUrl">Library website (optional)</label>
+          <input id="siteUrl" name="siteUrl" type="url" placeholder="https://your-github-name.github.io/Manga-bookmarker/" />
+          <p class="hint">Adds “Open in library” links to the popup.</p>
+        </div>
+        <div class="actions">
+          <button class="primary" type="submit">Save and test</button>
+          <span id="status" class="status" role="status"></span>
+        </div>
+      </form>
+
+      <section id="library-box" class="box" hidden>
+        <p id="library-text"></p>
+        <button id="create-library" class="primary" type="button" hidden>Create library</button>
+      </section>
+
+      <section id="perm-box" class="box" hidden>
+        <p>
+          The extension needs access to GitHub and to the sites' image servers to download covers and save your
+          library. Your browser hasn't granted that yet.
+        </p>
+        <button id="grant" class="primary" type="button">Allow access</button>
+      </section>
+
+      <details class="help">
+        <summary>How do I make the repo and token?</summary>
+        <ol>
+          <li>On GitHub, create a new <strong>private</strong> repository, for example <code>manga-library-data</code>. Tick “Add a README”.</li>
+          <li>Go to Settings → Developer settings → Personal access tokens → <strong>Fine-grained tokens</strong> → Generate new token.</li>
+          <li>Repository access: <strong>Only select repositories</strong> → pick the data repo.</li>
+          <li>Permissions → Repository permissions → <strong>Contents: Read and write</strong>.</li>
+          <li>Generate, copy the token, and paste it above. Use the same token on the library website.</li>
+        </ol>
+      </details>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

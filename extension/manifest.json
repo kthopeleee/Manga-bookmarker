@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Manga Bookmarker",
+  "version": "0.1.0",
+  "description": "Save manga and light novels from Mangago, Comix, MangaDex, NovelUpdates, Asura Scans and more into your own GitHub library.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Bookmark this series",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+B" },
+      "description": "Open the bookmark popup"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+  "host_permissions": [
+    "https://api.github.com/*",
+    "https://api.mangadex.org/*",
+    "https://uploads.mangadex.org/*",
+    "https://*.mangapicgallery.com/*",
+    "https://static.comix.to/*",
+    "https://cdn.novelupdates.com/*",
+    "https://cdn.asurascans.com/*"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{5c740674-3a72-424f-a417-aa98451ce696}",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent"]
+      }
+    }
+  }
+}
