@@ -26,7 +26,12 @@ try {
   run('git', ['add', '-A'], tmp);
   run('git', ['commit', '-q', '-m', `Deploy website from ${source}`], tmp);
   try {
-    run('git', ['push', '-q', '-f', remote, 'gh-pages'], tmp);
+    // GIT_TERMINAL_PROMPT=0: fail instead of waiting for a password if git has no login.
+    execFileSync('git', ['push', '-q', '-f', remote, 'gh-pages'], {
+      cwd: tmp,
+      stdio: 'inherit',
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+    });
   } catch {
     // No git credentials for GitHub: borrow the GitHub CLI's login for this one push.
     run('git', ['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '-q', '-f', remote, 'gh-pages'], tmp);
