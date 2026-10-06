@@ -29,6 +29,7 @@
 
   // Fill gaps from the page's meta tags and attach adapter defaults.
   function finish(result, adapter, doc, url) {
+    result.adapter = adapter.id;
     result.siteLabel = result.siteLabel || adapter.label;
     result.library = result.library || adapter.library;
     result.pageUrl = url.href;

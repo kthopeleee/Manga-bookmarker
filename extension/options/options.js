@@ -1,4 +1,4 @@
-import { ext, getSettings, saveSettings, setCachedLibrary } from '../lib/ext.js';
+import { ext, getSettings, saveSettings, setCachedLibrary, librarySitePatterns } from '../lib/ext.js';
 import { GitHubStore } from '../shared/github-store.js';
 
 const form = document.getElementById('form');
@@ -15,15 +15,28 @@ function setStatus(text, kind = '') {
   status.className = `status ${kind}`;
 }
 
+// Everything in host_permissions, plus the library website so its "Add by hand" form can use the extension.
+function wantedOrigins() {
+  const site = librarySitePatterns(form.elements.siteUrl.value.trim());
+  return site ? [...hostPermissions, site.origin] : hostPermissions;
+}
+
 async function checkPermissions() {
-  const ok = await ext.permissions.contains({ origins: hostPermissions });
+  const ok = await ext.permissions.contains({ origins: wantedOrigins() });
   permBox.hidden = ok;
   return ok;
 }
 
 document.getElementById('grant').addEventListener('click', async () => {
-  await ext.permissions.request({ origins: hostPermissions });
-  await checkPermissions();
+  let granted = false;
+  try {
+    granted = await ext.permissions.request({ origins: wantedOrigins() });
+  } catch (err) {
+    setStatus(err.message, 'error');
+  }
+  if ((await checkPermissions()) && granted && form.elements.siteUrl.value.trim()) {
+    setStatus('Access allowed. Reload your library website to fill in series from links.', 'ok');
+  }
 });
 
 // Pre-filled so only the key needs pasting. The data repo is private, so these names aren't secret.
@@ -44,7 +57,8 @@ async function test() {
   await saveSettings(values);
   setStatus('Testing…');
   libraryBox.hidden = true;
-  if (!(await checkPermissions())) {
+  await checkPermissions(); // shows the "Allow access" box if anything is missing
+  if (!(await ext.permissions.contains({ origins: hostPermissions }))) {
     setStatus('Saved. Allow access below, then test again.', 'error');
     return;
   }

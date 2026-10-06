@@ -8,12 +8,13 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
   const folders = foldersFor(library, board.library);
 
   const counts = useMemo(() => {
-    const c = { manga: 0, novel: 0, unsorted: 0, folders: {} };
+    const c = { manga: 0, novel: 0, unsorted: 0, folders: {}, genres: new Set() };
     for (const e of library.entries) {
       c[e.library]++;
       if (e.library !== board.library) continue;
       if (!e.folderIds.length) c.unsorted++;
       for (const id of e.folderIds) c.folders[id] = (c.folders[id] || 0) + 1;
+      for (const g of e.genres) c.genres.add(g);
     }
     return c;
   }, [library, board.library]);
@@ -54,7 +55,7 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
       <div className={`scrim ${open ? 'scrim--open' : ''}`} onClick={onClose} aria-hidden="true" />
       <aside className={`sidebar ${open ? 'sidebar--open' : ''}`} aria-label="Library sections">
         <div className="sidebar__brand">
-          <img src="./favicon.svg" alt="" width="26" height="26" />
+          <img src="./logo.png" alt="" width="43" height="26" />
           <span>Manga Shelf</span>
         </div>
 
@@ -66,7 +67,7 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
               type="button"
               aria-selected={board.library === l.id}
               className="libswitch__tab"
-              onClick={() => go(boardHash({ library: l.id, section: 'all' }))}
+              onClick={() => go(boardHash({ library: l.id, section: board.section === 'genres' ? 'genres' : 'all' }))}
             >
               <span>{l.label}</span>
               <span className="libswitch__count">{counts[l.id]}</span>
@@ -86,6 +87,15 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
           >
             <span>Unsorted</span>
             <span className="section__count">{counts.unsorted}</span>
+          </button>
+          <button
+            type="button"
+            className={`section ${isActive('genres') ? 'section--active' : ''}`}
+            onClick={() => go(boardHash({ library: board.library, section: 'genres' }))}
+            title="Every genre, with how many series have it"
+          >
+            <span>Genres</span>
+            <span className="section__count">{counts.genres.size}</span>
           </button>
 
           <div className="sections__heading">

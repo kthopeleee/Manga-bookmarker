@@ -1,4 +1,4 @@
-import { ext, getSettings, isConfigured, getCachedLibrary, setCachedLibrary } from '../lib/ext.js';
+import { ext, getSettings, isConfigured, getCachedLibrary, setCachedLibrary, libraryPageUrl } from '../lib/ext.js';
 import { scrapeTab, prepareCover } from '../lib/page.js';
 import { GitHubStore } from '../shared/github-store.js';
 import {
@@ -44,8 +44,7 @@ function show(...nodes) {
 }
 
 function libraryUrl(hash = '') {
-  if (!settings.siteUrl) return null;
-  return settings.siteUrl.replace(/#.*$/, '').replace(/\/?$/, '/') + hash;
+  return libraryPageUrl(settings, hash);
 }
 
 function openTab(url) {

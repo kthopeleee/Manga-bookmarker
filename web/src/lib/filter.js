@@ -25,7 +25,11 @@ export function applyFilters(list, filters) {
     if (filters.status && filters.status !== 'any' && filters.status !== 'none' && e.readingStatus !== filters.status) {
       return false;
     }
-    if (filters.genres.length && !filters.genres.every((g) => e.genres.includes(g))) return false;
+    if (filters.genres.length) {
+      // 'any': at least one of the genres. Otherwise every one of them.
+      const has = (g) => e.genres.includes(g);
+      if (!(filters.genreMatch === 'any' ? filters.genres.some(has) : filters.genres.every(has))) return false;
+    }
     if (filters.tags.length) {
       const tags = entryTags(e);
       if (!filters.tags.every((t) => tags.includes(t))) return false;

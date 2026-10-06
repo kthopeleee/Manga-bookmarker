@@ -57,7 +57,7 @@ export function SettingsPage({ settings, onSave, onForget, library, connected })
     <div className="settings">
       <div className="settings__card">
         <div className="settings__brand">
-          <img src="./favicon.svg" alt="" width="34" height="34" />
+          <img src="./logo.png" alt="" width="56" height="34" />
           <h1>{connected ? 'Settings' : 'Manga Shelf'}</h1>
         </div>
         <p className="muted">

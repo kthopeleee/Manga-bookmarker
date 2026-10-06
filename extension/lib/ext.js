@@ -31,5 +31,45 @@ export async function getCachedLibrary() {
 }
 
 export async function setCachedLibrary(library) {
-  await ext.storage.local.set({ libraryCache: library });
+  await ext.storage.local.set({ libraryCache: library, libraryCachedAt: Date.now() });
+}
+
+/** A page of the library website, e.g. libraryPageUrl(settings, '#/entry/e_123'). Null if no site is set. */
+export function libraryPageUrl(settings, hash = '') {
+  if (!settings.siteUrl) return null;
+  return settings.siteUrl.replace(/#.*$/, '').replace(/\/?$/, '/') + hash;
+}
+
+/**
+ * Match patterns for the library website in the settings: `origin` is the access to ask the browser
+ * for, `page` is where content/library-bridge.js runs. Null if no valid site is set.
+ */
+export function librarySitePatterns(siteUrl) {
+  let url;
+  try {
+    url = new URL(siteUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  const base = `${url.protocol}//${url.hostname}`;
+  return { origin: `${base}/*`, page: `${base}${url.pathname.replace(/[^/]*$/, '')}*` };
+}
+
+function patternToRegExp(pattern) {
+  const m = /^(\*|https?):\/\/(\*|(?:\*\.)?[^/*]+)(\/.*)$/.exec(pattern);
+  if (!m) return null;
+  const esc = (s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const scheme = m[1] === '*' ? 'https?' : m[1];
+  const host = m[2] === '*' ? '[^/]+' : m[2].startsWith('*.') ? `(?:[^/]+\\.)?${esc(m[2].slice(2))}` : esc(m[2]);
+  const path = m[3].split('*').map(esc).join('.*');
+  return new RegExp(`^${scheme}://${host}(?::\\d+)?${path}$`, 'i');
+}
+
+/** Does `url` fall under one of these extension match patterns (e.g. "https://*.mangago.me/*")? */
+export function urlMatches(url, patterns) {
+  return patterns.some((p) => {
+    const re = patternToRegExp(p);
+    return Boolean(re && re.test(String(url)));
+  });
 }

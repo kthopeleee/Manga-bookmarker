@@ -32,8 +32,41 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.mangago.me/*",
+        "https://*.comix.to/*",
+        "https://*.mangadex.org/*",
+        "https://*.novelupdates.com/*",
+        "https://*.asuracomic.net/*",
+        "https://*.asurascans.com/*",
+        "https://*.kingofshojo.com/*"
+      ],
+      "js": [
+        "adapters/_util.js",
+        "adapters/mangago.js",
+        "adapters/comix.js",
+        "adapters/mangadex.js",
+        "adapters/novelupdates.js",
+        "adapters/asura.js",
+        "adapters/wp-manga.js",
+        "adapters/generic.js",
+        "content/scrape.js",
+        "content/badge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
   "host_permissions": [
+    "https://*.mangago.me/*",
+    "https://*.comix.to/*",
+    "https://*.mangadex.org/*",
+    "https://*.novelupdates.com/*",
+    "https://*.asuracomic.net/*",
+    "https://*.asurascans.com/*",
+    "https://*.kingofshojo.com/*",
     "https://api.github.com/*",
     "https://api.mangadex.org/*",
     "https://uploads.mangadex.org/*",
@@ -42,6 +75,7 @@
     "https://cdn.novelupdates.com/*",
     "https://cdn.asurascans.com/*"
   ],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "browser_specific_settings": {
     "gecko": {
       "id": "{5c740674-3a72-424f-a417-aa98451ce696}",

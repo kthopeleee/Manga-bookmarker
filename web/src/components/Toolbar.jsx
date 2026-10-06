@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { READING_STATUSES } from '@shared/model.js';
 import { displayTag } from '@shared/tags.js';
-import { Chip } from './ui.jsx';
+import { Chip, Dropdown } from './ui.jsx';
 import { hasActiveFilters } from '../lib/filter.js';
 
-const SORTS = [
+export const SORTS = [
   { id: 'added', label: 'Recently added' },
   { id: 'updated', label: 'Recently changed' },
   { id: 'title', label: 'Title A–Z' },
   { id: 'unread', label: 'Most unread chapters' },
 ];
+
+const STATUS_FILTERS = [{ id: 'any', label: 'Any status' }, ...READING_STATUSES, { id: 'none', label: 'No status' }];
 
 function ChipRow({ label, items, selected, onToggle, limit = 14 }) {
   const [expanded, setExpanded] = useState(false);
@@ -66,22 +68,13 @@ export function Toolbar({ heading, shown, total, filters, setFilters, genres, ta
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             aria-label="Search"
           />
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} aria-label="Reading status">
-            <option value="any">Any status</option>
-            {READING_STATUSES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-            <option value="none">No status</option>
-          </select>
-          <select value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))} aria-label="Sort">
-            {SORTS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            label="Reading status"
+            value={filters.status}
+            options={STATUS_FILTERS}
+            onChange={(status) => setFilters((f) => ({ ...f, status }))}
+          />
+          <Dropdown label="Sort" value={filters.sort} options={SORTS} onChange={(sort) => setFilters((f) => ({ ...f, sort }))} />
           <a className="btn btn--primary add-btn" href={addHref}>
             + Add
           </a>

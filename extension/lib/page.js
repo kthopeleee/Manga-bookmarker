@@ -92,12 +92,10 @@ function toastInPage(message, tone) {
   clearTimeout(host.mbTimer);
   const box = document.createElement('div');
   box.textContent = message;
-  box.setAttribute(
-    'style',
+  box.style.cssText =
     `position:fixed;top:16px;right:16px;z-index:2147483647;max-width:340px;padding:10px 14px;border-radius:8px;` +
       `background:${colors[tone] || colors.info};color:#fff;font:14px/1.4 system-ui,sans-serif;` +
-      'box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer',
-  );
+      'box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer';
   box.addEventListener('click', () => host.remove());
   host.shadowRoot.replaceChildren(box);
   if (tone !== 'info') host.mbTimer = setTimeout(() => host.remove(), tone === 'error' ? 8000 : 5000);

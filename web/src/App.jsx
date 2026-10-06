@@ -11,6 +11,7 @@ import { Board } from './components/Board.jsx';
 import { EntryDetail } from './components/EntryDetail.jsx';
 import { AddEntry } from './components/AddEntry.jsx';
 import { SettingsPage } from './components/SettingsPage.jsx';
+import { GenresPage } from './components/GenresPage.jsx';
 
 const NO_FILTERS = { search: '', genres: [], tags: [], status: 'any' };
 
@@ -51,7 +52,13 @@ export default function App() {
     board.section === 'folder' && lib.library ? lib.library.folders.find((f) => f.id === board.folderId) : null;
   const libLabel = LIBRARIES.find((l) => l.id === board.library).label;
   const heading =
-    board.section === 'unsorted' ? `${libLabel} · Unsorted` : folder ? `${libLabel} · ${folder.name}` : libLabel;
+    board.section === 'unsorted'
+      ? `${libLabel} · Unsorted`
+      : board.section === 'genres'
+        ? `${libLabel} · Genres`
+        : folder
+          ? `${libLabel} · ${folder.name}`
+          : libLabel;
 
   useEffect(() => {
     document.title = route.name === 'entry' && entry ? `${entry.title} · Manga Shelf` : `${heading} · Manga Shelf`;
@@ -185,18 +192,34 @@ export default function App() {
         onLock={lock}
       />
       <main className="main">
-        <Toolbar
-          heading={heading}
-          shown={shown.length}
-          total={section.length}
-          filters={filters}
-          setFilters={setFilters}
-          genres={genres}
-          tags={tags}
-          onMenu={() => setDrawerOpen(true)}
-          addHref={`#/add?library=${board.library}`}
-        />
-        <Board entries={shown} store={lib.store} empty={empty} />
+        {board.section === 'genres' ? (
+          <GenresPage
+            board={board}
+            heading={heading}
+            libLabel={libLabel}
+            entries={section}
+            genres={genres}
+            store={lib.store}
+            sort={filters.sort}
+            onSort={(sort) => setFilters((f) => ({ ...f, sort }))}
+            onMenu={() => setDrawerOpen(true)}
+          />
+        ) : (
+          <>
+            <Toolbar
+              heading={heading}
+              shown={shown.length}
+              total={section.length}
+              filters={filters}
+              setFilters={setFilters}
+              genres={genres}
+              tags={tags}
+              onMenu={() => setDrawerOpen(true)}
+              addHref={`#/add?library=${board.library}`}
+            />
+            <Board entries={shown} store={lib.store} empty={empty} />
+          </>
+        )}
       </main>
 
       {route.name === 'entry' && (

@@ -9,7 +9,7 @@
   </head>
   <body>
     <main class="page">
-      <h1><img src="../icons/icon-48.png" alt="" width="28" height="28" /> Manga Bookmarker</h1>
+      <h1><img src="../icons/logo.png" alt="" width="46" height="28" /> Manga Bookmarker</h1>
       <p class="lead">
         Your library is stored in a private GitHub repository that you own. Create the repo and a token once,
         paste them here, and every bookmark is saved straight into it.
@@ -35,7 +35,10 @@
         <div class="field">
           <label for="siteUrl">Library website (optional)</label>
           <input id="siteUrl" name="siteUrl" type="url" placeholder="https://your-github-name.github.io/Manga-bookmarker/" />
-          <p class="hint">Adds “Open in library” links to the popup.</p>
+          <p class="hint">
+            Adds “Open in library” links to the popup and the badge on manga sites, and lets the website’s
+            “Add by hand” form fill itself in from a link.
+          </p>
         </div>
         <div class="actions">
           <button class="primary" type="submit">Save and test</button>
@@ -50,8 +53,9 @@
 
       <section id="perm-box" class="box" hidden>
         <p>
-          The extension needs access to GitHub and to the sites' image servers to download covers and save your
-          library. Your browser hasn't granted that yet.
+          The extension needs access to GitHub, the supported manga sites and their image servers to read series,
+          download covers and save your library, and to your library website so it can fill in series from links.
+          Your browser hasn't granted that yet.
         </p>
         <button id="grant" class="primary" type="button">Allow access</button>
       </section>
