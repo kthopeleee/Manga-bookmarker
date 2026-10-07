@@ -40,7 +40,17 @@ function ChipRow({ label, items, selected, onToggle, limit = 14 }) {
   );
 }
 
-export function Toolbar({ heading, shown, total, filters, setFilters, genres, tags, onMenu, addHref }) {
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'the site';
+  }
+}
+
+// folder / onEditList: the folder being shown and its link to a list on a site.
+// selecting / onSelect / children: "Add to folder" mode, whose bar is passed in as children.
+export function Toolbar({ heading, shown, total, filters, setFilters, genres, tags, onMenu, addHref, folder, onEditList, selecting, onSelect, children }) {
   const toggle = (key) => (value) =>
     setFilters((f) => ({
       ...f,
@@ -58,6 +68,24 @@ export function Toolbar({ heading, shown, total, filters, setFilters, genres, ta
           <span className="toolbar__count">
             {shown === total ? `${total} series` : `${shown} of ${total}`}
           </span>
+          {folder && (
+            <span className="toolbar__list">
+              {folder.listUrl ? (
+                <>
+                  <a href={folder.listUrl} target="_blank" rel="noopener noreferrer">
+                    List on {hostOf(folder.listUrl)} ↗
+                  </a>
+                  <button type="button" className="linkish" onClick={() => onEditList(folder)}>
+                    Edit
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="linkish" onClick={() => onEditList(folder)} title="Save a link to the same list on a site, like a Mangago list">
+                  + Link a list
+                </button>
+              )}
+            </span>
+          )}
         </div>
         <div className="toolbar__controls">
           <input
@@ -75,11 +103,15 @@ export function Toolbar({ heading, shown, total, filters, setFilters, genres, ta
             onChange={(status) => setFilters((f) => ({ ...f, status }))}
           />
           <Dropdown label="Sort" value={filters.sort} options={SORTS} onChange={(sort) => setFilters((f) => ({ ...f, sort }))} />
+          <button type="button" className="btn" aria-pressed={selecting} onClick={onSelect} title="Pick several covers and put them in a folder">
+            Add to folder
+          </button>
           <a className="btn btn--primary add-btn" href={addHref}>
             + Add
           </a>
         </div>
       </div>
+      {children}
       <ChipRow label="Genres" items={genres} selected={filters.genres} onToggle={toggle('genres')} />
       <ChipRow label="Tags" items={tags} selected={filters.tags} onToggle={toggle('tags')} limit={10} />
       {hasActiveFilters(filters) && (

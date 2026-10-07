@@ -90,3 +90,57 @@ test('Kingofshojo chapter page', async () => {
   assert.equal(r.seriesUrl, 'https://kingofshojo.com/manga/a-beasts-paradise/');
   assert.equal(r.chapter, 50);
 });
+
+const B2B = 'https://borntobenovel.com/novel/i-possessed-a-promiscuous-guide';
+
+test('BornToBeNovel series page', async () => {
+  const r = await scrape(sandbox, fixtureDoc('borntobenovel-series.html'), B2B);
+  assert.equal(r.kind, 'series');
+  assert.equal(r.site, 'borntobenovel');
+  assert.equal(r.siteLabel, 'BornToBeNovel');
+  assert.equal(r.library, 'novel');
+  assert.equal(r.seriesKey, 'i-possessed-a-promiscuous-guide');
+  assert.equal(r.url, B2B);
+  assert.equal(r.title, 'I Possessed a Promiscuous Guide');
+  assert.deepEqual(r.altTitles, ['mullanhan guideue binguihaetta', '문란한 가이드에 빙의했다']);
+  assert.equal(r.coverUrl, 'https://borntobenovel.com/images/covers/dd4eb554-da32-464f-9135-a12862fc5f66.webp');
+  assert.match(r.synopsis, /^After being involved in an unexpected accident, .* 'It's not possession .* going to be okay\?$/);
+  assert.equal(r.pubStatus, 'completed');
+  assert.equal(r.chaptersAvailable, 120, 'no chapter list on the page, so the "Orig:120ch." badge');
+  assert.ok(!r.tags.some((t) => /18\+|Completed|Orig/.test(t)), 'the rating, status and count badges are not tags');
+  assert.equal(r.tags.length, 20);
+  assert.deepEqual(r.tags.slice(0, 3), ['Yaoi', 'Supernatural', 'Omegaverse']);
+});
+
+test('BornToBeNovel genres come from its mixed genre-and-tag list', async () => {
+  const r = await scrape(sandbox, fixtureDoc('borntobenovel-series.html'), B2B);
+  const e = createEntry(entryFieldsFromScrape(r));
+  assert.deepEqual(e.genres, ['yaoi', 'supernatural', 'drama', 'romance']);
+  assert.ok(e.scrapedTags.includes('omegaverse') && e.scrapedTags.includes('male lead'));
+});
+
+test('BornToBeNovel counts the chapter list when there is one, not the Read button', async () => {
+  const doc = fixtureDoc('borntobenovel-series.html');
+  const list = doc.createElement('div');
+  list.className = 'chapters-grid';
+  for (const n of [1, 2, 57]) {
+    const card = doc.createElement('div');
+    card.className = 'chapter-card';
+    const a = doc.createElement('a');
+    a.className = 'chapter-link';
+    a.setAttribute('href', `/novel/i-possessed-a-promiscuous-guide/chapters/ch-${n}`);
+    card.append(a);
+    list.append(card);
+  }
+  doc.querySelector('main').append(list);
+  assert.equal((await scrape(sandbox, doc, B2B)).chaptersAvailable, 57, 'translated so far, not the original 120');
+});
+
+test('BornToBeNovel chapter page', async () => {
+  const doc = htmlDoc(`<html><head><title>Chapter 12 – I Possessed a Promiscuous Guide – read novel online on BornToBeNovel</title></head><body></body></html>`);
+  const r = await scrape(sandbox, doc, `${B2B}/chapters/ch-12`);
+  assert.deepEqual(
+    { kind: r.kind, site: r.site, seriesKey: r.seriesKey, seriesUrl: r.seriesUrl, chapter: r.chapter },
+    { kind: 'chapter', site: 'borntobenovel', seriesKey: 'i-possessed-a-promiscuous-guide', seriesUrl: B2B, chapter: 12 },
+  );
+});

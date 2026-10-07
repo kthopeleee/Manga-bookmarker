@@ -13,6 +13,7 @@ export const ADAPTER_FILES = [
   'adapters/mangadex.js',
   'adapters/novelupdates.js',
   'adapters/asura.js',
+  'adapters/borntobenovel.js',
   'adapters/wp-manga.js',
   'adapters/generic.js',
   'content/scrape.js',

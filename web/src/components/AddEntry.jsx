@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { LIBRARIES, READING_STATUSES, addEntry, addFolder, createEntry, foldersFor, newId } from '@shared/model.js';
+import { LIBRARIES, addEntry, addFolder, createEntry, foldersFor, getEntry, linkEntries, newId } from '@shared/model.js';
 import { displayTag, uniqueTags } from '@shared/tags.js';
-import { findDuplicate } from '@shared/match.js';
+import { findCounterparts, findDuplicate } from '@shared/match.js';
 import { base64ToBytes, coverPathFor } from '@shared/github-store.js';
 import { makeThumbnail } from '@shared/image.js';
 import { Modal } from './Modal.jsx';
-import { Chip, Segmented, TagAdder } from './ui.jsx';
+import { Chip, Dropdown, STATUS_OPTIONS, Segmented, TagAdder } from './ui.jsx';
 import { navigate } from '../lib/router.js';
 import { readLinkWithExtension, useExtensionAvailable } from '../lib/extension.js';
 
@@ -33,6 +33,7 @@ export function AddEntry({ defaultLibrary, defaultFolderId, library, store, muta
   const [fromSite, setFromSite] = useState(null); // { url, fields, cover } read by the extension
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState(null); // { text, error }
+  const [linkChoices, setLinkChoices] = useState({}); // entry id -> link or not, once clicked
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const folders = foldersFor(library, form.library);
 
@@ -46,6 +47,10 @@ export function AddEntry({ defaultLibrary, defaultFolderId, library, store, muta
       : { title, url: form.url || null, library: form.library };
   };
   const alreadySaved = site ? findDuplicate(library, identity(form.title.trim())) : null;
+
+  // The same title in the other library: this story's manga or light novel. Linked by default if there's one.
+  const counterparts = findCounterparts(library, { title: form.title.trim(), altTitles: site ? site.altTitles : [], library: form.library });
+  const wantsLink = (e) => (e.id in linkChoices ? linkChoices[e.id] : counterparts.length === 1);
 
   async function fillFromLink(url) {
     const link = url.trim();
@@ -142,7 +147,12 @@ export function AddEntry({ defaultLibrary, defaultFolderId, library, store, muta
         lastReadChapter: num(form.lastReadChapter),
         notes: form.notes,
       });
-      await mutate((lib) => addEntry(lib, entry), `Add: ${title}`);
+      const linkIds = counterparts.filter(wantsLink).map((e) => e.id);
+      await mutate((lib) => {
+        addEntry(lib, entry);
+        for (const otherId of linkIds) if (getEntry(lib, otherId)) linkEntries(lib, id, otherId);
+        return lib;
+      }, `Add: ${title}`);
       navigate(`#/entry/${id}`);
     } catch (err) {
       notify(`Couldn't add it: ${err.message}`, 'error');
@@ -234,17 +244,15 @@ export function AddEntry({ defaultLibrary, defaultFolderId, library, store, muta
           </div>
         </div>
         <div className="row">
-          <label className="field">
+          <div className="field">
             <span className="field__label">Status</span>
-            <select value={form.readingStatus} onChange={set('readingStatus')}>
-              <option value="">—</option>
-              {READING_STATUSES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Dropdown
+              label="Reading status"
+              value={form.readingStatus}
+              options={STATUS_OPTIONS}
+              onChange={(readingStatus) => setForm((f) => ({ ...f, readingStatus }))}
+            />
+          </div>
           <label className="field">
             <span className="field__label">Chapters</span>
             <input type="number" min="0" step="any" value={form.chaptersAvailable} onChange={set('chaptersAvailable')} />
@@ -282,6 +290,20 @@ export function AddEntry({ defaultLibrary, defaultFolderId, library, store, muta
             </button>
           </div>
         </div>
+        {counterparts.length > 0 && (
+          <div className="field">
+            <span className="field__label">
+              Link with <em>(same title in your other library)</em>
+            </span>
+            <div className="chips">
+              {counterparts.map((e) => (
+                <Chip key={e.id} pressed={wantsLink(e)} onClick={() => setLinkChoices((c) => ({ ...c, [e.id]: !wantsLink(e) }))}>
+                  {LIBRARIES.find((l) => l.id === e.library).label}: {e.title}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="field">
           <span className="field__label">Synopsis</span>
           <textarea rows={3} value={form.synopsis} onChange={set('synopsis')} />

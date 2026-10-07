@@ -11,8 +11,14 @@ import {
   mergeScrapeIntoEntry,
   entryFieldsFromScrape,
   normalizeLibrary,
+  deleteEntry,
+  linkEntries,
+  unlinkEntries,
+  relatedEntries,
+  setFolderListUrl,
+  addToFolder,
 } from '../shared/model.js';
-import { findDuplicate, normalizeTitle } from '../shared/match.js';
+import { findDuplicate, findCounterparts, normalizeTitle } from '../shared/match.js';
 import { GitHubStore, bytesToBase64, base64ToBytes } from '../shared/github-store.js';
 
 test('tags are normalised and merged', () => {
@@ -95,6 +101,62 @@ test('normalizeLibrary drops folder ids that no longer exist', () => {
   const lib = normalizeLibrary({ folders: [{ id: 'f1', name: 'A', library: 'manga' }], entries: [{ title: 'X', folderIds: ['f1', 'gone'] }] });
   assert.deepEqual(lib.entries[0].folderIds, ['f1']);
   assert.equal(lib.entries[0].library, 'manga');
+});
+
+test('a manga and its light novel can both be saved, then linked both ways', () => {
+  const lib = emptyLibrary();
+  addEntry(lib, createEntry({ id: 'm', library: 'manga', title: 'Solo Leveling', links: [{ site: 'mangago', key: 'solo', url: 'https://www.mangago.me/read-manga/solo/' }] }));
+  const novel = { site: 'novelupdates', seriesKey: 'solo-leveling', title: 'Solo Leveling', altTitles: ['Na Honjaman Level Up'], library: 'novel' };
+  assert.equal(findDuplicate(lib, novel), null);
+  assert.deepEqual(findCounterparts(lib, novel).map((e) => e.id), ['m']);
+  assert.deepEqual(findCounterparts(lib, { ...novel, library: 'manga' }), []);
+
+  addEntry(lib, createEntry({ id: 'n', library: 'novel', title: 'Solo Leveling' }));
+  linkEntries(lib, 'n', 'm');
+  linkEntries(lib, 'm', 'n'); // linking twice changes nothing
+  assert.deepEqual(lib.entries.map((e) => e.relatedIds), [['n'], ['m']]);
+  assert.deepEqual(relatedEntries(lib, lib.entries[0]).map((e) => e.id), ['n']);
+
+  unlinkEntries(lib, 'm', 'n');
+  assert.deepEqual(lib.entries.map((e) => e.relatedIds), [[], []]);
+
+  linkEntries(lib, 'm', 'n');
+  deleteEntry(lib, 'n');
+  assert.deepEqual(lib.entries[0].relatedIds, []);
+});
+
+test('normalizeLibrary repairs one-way and dangling links', () => {
+  const lib = normalizeLibrary({
+    entries: [
+      { id: 'a', title: 'A', relatedIds: ['b', 'gone', 'a'] },
+      { id: 'b', title: 'B', library: 'novel' },
+    ],
+  });
+  assert.deepEqual(lib.entries.map((e) => e.relatedIds), [['b'], ['a']]);
+});
+
+test('a folder can link to a list on a site', () => {
+  const lib = normalizeLibrary({ folders: [{ id: 'f1', name: 'Faves', library: 'manga', listUrl: 'javascript:alert(1)' }] });
+  assert.equal(lib.folders[0].listUrl, null);
+  setFolderListUrl(lib, 'f1', ' https://www.mangago.me/home/mangalist/123/ ');
+  assert.equal(lib.folders[0].listUrl, 'https://www.mangago.me/home/mangalist/123/');
+  assert.equal(normalizeLibrary(lib).folders[0].listUrl, 'https://www.mangago.me/home/mangalist/123/');
+  setFolderListUrl(lib, 'f1', '');
+  assert.equal(lib.folders[0].listUrl, null);
+});
+
+test('addToFolder adds several entries at once, only from the folder’s library', () => {
+  const lib = normalizeLibrary({
+    folders: [{ id: 'f1', name: 'Faves', library: 'manga' }],
+    entries: [
+      { id: 'a', title: 'A', library: 'manga' },
+      { id: 'b', title: 'B', library: 'manga', folderIds: ['f1'] },
+      { id: 'c', title: 'C', library: 'novel' },
+    ],
+  });
+  addToFolder(lib, 'f1', ['a', 'b', 'c']);
+  assert.deepEqual(lib.entries.map((e) => e.folderIds), [['f1'], ['f1'], []]);
+  assert.throws(() => addToFolder(lib, 'gone', ['a']), /no longer exists/);
 });
 
 test('base64 round-trips binary and unicode', () => {

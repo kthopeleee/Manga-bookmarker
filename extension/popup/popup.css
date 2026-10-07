@@ -234,6 +234,10 @@ select:focus {
   border-color: transparent;
 }
 
+.chip:disabled {
+  cursor: default;
+}
+
 .chip-input {
   width: auto;
   flex: 1 1 110px;
@@ -289,6 +293,12 @@ details p {
   font: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+.caught-up {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .icon-btn {

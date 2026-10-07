@@ -1,5 +1,5 @@
 // Hash routes, so the site works on GitHub Pages without server rewrites.
-//   #/manga  #/novel  #/manga/unsorted  #/manga/folder/<id>  #/entry/<id>  #/add?library=novel  #/settings
+//   #/manga  #/novel  #/manga/unsorted  #/manga/folder/<id>  #/entry/<id>  #/add?library=novel  #/settings  #/sites
 //   #/manga/genres?g=romance&g=isekai&match=any  (the ticked genres live in the URL, so a reload keeps them)
 import { useEffect, useState } from 'react';
 
@@ -12,6 +12,7 @@ export function parseHash(hash) {
   if (parts[0] === 'entry' && parts[1]) return { name: 'entry', id: parts[1] };
   if (parts[0] === 'add') return { name: 'add', library: params.get('library') === 'novel' ? 'novel' : 'manga' };
   if (parts[0] === 'settings') return { name: 'settings' };
+  if (parts[0] === 'sites') return { name: 'sites' };
 
   const library = parts[0] === 'novel' ? 'novel' : 'manga';
   if (parts[1] === 'unsorted') return { name: 'board', library, section: 'unsorted' };

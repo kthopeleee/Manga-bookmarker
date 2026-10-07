@@ -1,0 +1,123 @@
+/* Chapters panel on a series' page (Chapters.jsx). Colours come from the palette variables in styles.css. */
+
+.chapters__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: -1px; /* tabs sit on the panel's top border */
+}
+
+.chapters__tab {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-bottom-color: transparent;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chapters__tab[aria-selected='true'] {
+  position: relative;
+  background: var(--surface);
+  border-color: var(--border);
+  border-bottom-color: var(--surface);
+  color: var(--text);
+}
+
+.chapters__tab-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chapters__panel {
+  padding: 10px 0 0;
+}
+
+.chapters__tabs + .chapters__panel {
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0 8px 8px 8px;
+}
+
+.chapters__info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.chapters__title {
+  font-weight: 650;
+}
+
+.chapters__site {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.chapters__site:hover {
+  text-decoration: underline;
+}
+
+.chapters__range {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.chapters__range .dropdown__trigger {
+  padding: 3px 8px 3px 10px;
+}
+
+.chapters__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter {
+  width: 100%;
+  padding: 3px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.chapter:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.chapter--read {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-soft-text);
+  font-weight: 600;
+}
+
+.chapter--next {
+  border: 1.5px solid var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chapters__none {
+  margin: 0;
+  font-size: 13px;
+}

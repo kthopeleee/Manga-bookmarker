@@ -8,7 +8,8 @@ export function Modal({ onClose, label, children, wide }) {
   // Runs once per opening: focusing on every re-render would steal focus from inputs.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      // An open dropdown handles Escape itself (and marks it handled); only close when nothing did.
+      if (e.key === 'Escape' && !e.defaultPrevented) onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;

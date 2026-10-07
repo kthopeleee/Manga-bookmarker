@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react';
 import { LIBRARIES, addFolder, deleteFolder, foldersFor, moveFolder, newId, renameFolder } from '@shared/model.js';
 import { boardHash, navigate } from '../lib/router.js';
+import { ENTRY_DRAG_TYPE } from './Card.jsx';
 
-export function Sidebar({ library, board, mutate, open, onClose, onLock, saving }) {
+// onDropEntries(folder, ids): covers dragged onto a folder.
+export function Sidebar({ library, board, mutate, open, onClose, onLock, saving, onDropEntries }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
+  const [dropTarget, setDropTarget] = useState(null);
   const folders = foldersFor(library, board.library);
 
   const counts = useMemo(() => {
-    const c = { manga: 0, novel: 0, unsorted: 0, folders: {}, genres: new Set() };
+    const c = { manga: 0, novel: 0, folders: {}, genres: new Set() };
     for (const e of library.entries) {
       c[e.library]++;
       if (e.library !== board.library) continue;
-      if (!e.folderIds.length) c.unsorted++;
       for (const id of e.folderIds) c.folders[id] = (c.folders[id] || 0) + 1;
       for (const g of e.genres) c.genres.add(g);
     }
@@ -47,6 +49,30 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
     if (board.section === 'folder' && board.folderId === f.id) go(boardHash({ library: board.library, section: 'all' }));
   }
 
+  // Folders accept covers dragged from the board.
+  const dropProps = (f) => ({
+    onDragOver: (e) => {
+      if (!Array.from(e.dataTransfer.types).includes(ENTRY_DRAG_TYPE)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      if (dropTarget !== f.id) setDropTarget(f.id);
+    },
+    onDragLeave: (e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget((t) => (t === f.id ? null : t));
+    },
+    onDrop: (e) => {
+      e.preventDefault();
+      setDropTarget(null);
+      let ids;
+      try {
+        ids = JSON.parse(e.dataTransfer.getData(ENTRY_DRAG_TYPE));
+      } catch {
+        return;
+      }
+      if (Array.isArray(ids) && ids.length) onDropEntries(f, ids);
+    },
+  });
+
   const isActive = (section, folderId) =>
     board.section === section && (section !== 'folder' || board.folderId === folderId);
 
@@ -79,14 +105,6 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
           <button type="button" className={`section ${isActive('all') ? 'section--active' : ''}`} onClick={() => go(boardHash({ library: board.library, section: 'all' }))}>
             <span>All</span>
             <span className="section__count">{counts[board.library]}</span>
-          </button>
-          <button
-            type="button"
-            className={`section ${isActive('unsorted') ? 'section--active' : ''}`}
-            onClick={() => go(boardHash({ library: board.library, section: 'unsorted' }))}
-          >
-            <span>Unsorted</span>
-            <span className="section__count">{counts.unsorted}</span>
           </button>
           <button
             type="button"
@@ -126,8 +144,17 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
           {folders.length === 0 && !adding && <p className="sections__hint">Make folders like “Action” or “Top picks”. A series can be in several.</p>}
 
           {folders.map((f, i) => (
-            <div key={f.id} className={`section section--folder ${isActive('folder', f.id) ? 'section--active' : ''}`}>
-              <button type="button" className="section__main" onClick={() => go(boardHash({ library: board.library, section: 'folder', folderId: f.id }))}>
+            <div
+              key={f.id}
+              className={`section section--folder ${isActive('folder', f.id) ? 'section--active' : ''} ${dropTarget === f.id ? 'section--drop' : ''}`}
+              {...dropProps(f)}
+            >
+              <button
+                type="button"
+                className="section__main"
+                title="Drop covers here to add them"
+                onClick={() => go(boardHash({ library: board.library, section: 'folder', folderId: f.id }))}
+              >
                 <span className="section__name">{f.name}</span>
                 <span className="section__count">{counts.folders[f.id] || 0}</span>
               </button>
@@ -163,6 +190,9 @@ export function Sidebar({ library, board, mutate, open, onClose, onLock, saving 
             <span className="sidebar__links">
               <a href="#/settings" onClick={onClose}>
                 Settings
+              </a>
+              <a href="#/sites" onClick={onClose}>
+                Sites
               </a>
               <button type="button" className="linkish sidebar__lock" onClick={onLock} title="Remove the key from this device">
                 Lock

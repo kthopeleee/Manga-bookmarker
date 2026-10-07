@@ -4,6 +4,7 @@
 
 import { uniqueTags } from './tags.js';
 import { genresFor } from './genres.js';
+import { normalizeFeatureToggles, normalizeSiteLibraries } from './sites.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -44,6 +45,10 @@ export function emptyLibrary() {
   return { version: SCHEMA_VERSION, folders: [], entries: [] };
 }
 
+function webUrlOrNull(v) {
+  return typeof v === 'string' && /^https?:\/\/\S+$/i.test(v.trim()) ? v.trim() : null;
+}
+
 function toNumberOrNull(v) {
   if (v === '' || v == null) return null;
   const n = Number(v);
@@ -68,6 +73,8 @@ export function normalizeEntry(e) {
     // Which of the tags are genres (see genres.js). Older entries get theirs from the known list.
     genres: genresFor(e.genres, [...scrapedTags, ...customTags]),
     folderIds: Array.isArray(e.folderIds) ? [...new Set(e.folderIds)] : [],
+    // The same story in the other library (the manga of a light novel, or the novel of a manga).
+    relatedIds: Array.isArray(e.relatedIds) ? [...new Set(e.relatedIds.filter((id) => typeof id === 'string'))] : [],
     readingStatus: READING_STATUSES.some((s) => s.id === e.readingStatus) ? e.readingStatus : null,
     pubStatus: PUB_STATUSES.some((s) => s.id === e.pubStatus) ? e.pubStatus : null,
     chaptersAvailable: toNumberOrNull(e.chaptersAvailable),
@@ -80,6 +87,7 @@ export function normalizeEntry(e) {
   for (const k of EXTERNAL_ID_KEYS) {
     if (e.externalIds && e.externalIds[k]) entry.externalIds[k] = String(e.externalIds[k]);
   }
+  entry.relatedIds = entry.relatedIds.filter((id) => id !== entry.id);
   return entry;
 }
 
@@ -93,6 +101,7 @@ export function normalizeLibrary(raw) {
           name: String(f.name),
           library: f.library === 'novel' ? 'novel' : 'manga',
           order: Number.isFinite(f.order) ? f.order : i,
+          listUrl: webUrlOrNull(f.listUrl), // the same list on a site, e.g. a Mangago list
         }))
     : [];
   const folderIds = new Set(folders.map((f) => f.id));
@@ -103,7 +112,23 @@ export function normalizeLibrary(raw) {
         return entry;
       })
     : [];
-  return { version: SCHEMA_VERSION, folders, entries };
+  // Links go both ways and only to entries that still exist.
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  for (const e of entries) e.relatedIds = e.relatedIds.filter((id) => byId.has(id));
+  for (const e of entries) {
+    for (const id of e.relatedIds) {
+      const other = byId.get(id);
+      if (!other.relatedIds.includes(e.id)) other.relatedIds.push(e.id);
+    }
+  }
+  // Which section each site's new bookmarks go to, and which automatic updates are off (see sites.js).
+  return {
+    version: SCHEMA_VERSION,
+    folders,
+    entries,
+    siteLibraries: normalizeSiteLibraries(lib.siteLibraries),
+    features: normalizeFeatureToggles(lib.features),
+  };
 }
 
 export function createEntry(fields) {
@@ -133,6 +158,11 @@ export function getEntry(library, id) {
   return library.entries.find((e) => e.id === id) || null;
 }
 
+/** The entries linked to this one (e.g. its light novel or manga version). */
+export function relatedEntries(library, entry) {
+  return entry.relatedIds.map((id) => getEntry(library, id)).filter(Boolean);
+}
+
 // ---------- mutators ----------
 
 export function addEntry(library, entry) {
@@ -152,6 +182,26 @@ export function updateEntry(library, id, patch) {
 
 export function deleteEntry(library, id) {
   library.entries = library.entries.filter((e) => e.id !== id);
+  for (const e of library.entries) e.relatedIds = e.relatedIds.filter((rid) => rid !== id);
+  return library;
+}
+
+/** Link two entries as versions of the same story. Links go both ways. */
+export function linkEntries(library, aId, bId) {
+  if (aId === bId) return library;
+  const a = getEntry(library, aId);
+  const b = getEntry(library, bId);
+  if (!a || !b) throw new Error('That entry no longer exists in your library.');
+  if (!a.relatedIds.includes(bId)) a.relatedIds.push(bId);
+  if (!b.relatedIds.includes(aId)) b.relatedIds.push(aId);
+  return library;
+}
+
+export function unlinkEntries(library, aId, bId) {
+  for (const [id, other] of [[aId, bId], [bId, aId]]) {
+    const e = getEntry(library, id);
+    if (e) e.relatedIds = e.relatedIds.filter((x) => x !== other);
+  }
   return library;
 }
 
@@ -233,4 +283,22 @@ export function moveFolder(library, id, direction) {
 
 export function foldersFor(library, lib) {
   return library.folders.filter((f) => f.library === lib).sort((a, b) => a.order - b.order);
+}
+
+/** Link a folder to the same list on a site (e.g. a Mangago list). An empty url removes the link. */
+export function setFolderListUrl(library, id, url) {
+  const f = library.folders.find((x) => x.id === id);
+  if (f) f.listUrl = webUrlOrNull(url);
+  return library;
+}
+
+/** Put entries into a folder. Entries from the other library are left out, since folders belong to one. */
+export function addToFolder(library, folderId, entryIds) {
+  const folder = library.folders.find((f) => f.id === folderId);
+  if (!folder) throw new Error('That folder no longer exists.');
+  const ids = new Set(entryIds);
+  for (const e of library.entries) {
+    if (ids.has(e.id) && e.library === folder.library && !e.folderIds.includes(folderId)) e.folderIds.push(folderId);
+  }
+  return library;
 }

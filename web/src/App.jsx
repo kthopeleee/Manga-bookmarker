@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LIBRARIES, getEntry } from '@shared/model.js';
+import { LIBRARIES, addFolder, addToFolder, foldersFor, getEntry, newId, setFolderListUrl } from '@shared/model.js';
 import { useRoute, boardHash, navigate } from './lib/router.js';
 import { useLibrary } from './lib/useLibrary.js';
 import { loadSettings, saveSettings, clearSettings, isConfigured, loadPrefs, savePrefs } from './lib/settings.js';
@@ -12,8 +12,12 @@ import { EntryDetail } from './components/EntryDetail.jsx';
 import { AddEntry } from './components/AddEntry.jsx';
 import { SettingsPage } from './components/SettingsPage.jsx';
 import { GenresPage } from './components/GenresPage.jsx';
+import { SelectBar } from './components/SelectBar.jsx';
+import { SitesPage } from './components/SitesPage.jsx';
 
 const NO_FILTERS = { search: '', genres: [], tags: [], status: 'any' };
+
+const countText = (n) => (n === 1 ? '1 series' : `${n} series`);
 
 export default function App() {
   const [settings, setSettings] = useState(loadSettings);
@@ -23,6 +27,8 @@ export default function App() {
   const lib = useLibrary(settings, notify);
   const [filters, setFilters] = useState(() => ({ ...NO_FILTERS, sort: loadPrefs().sort }));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selecting, setSelecting] = useState(false); // "Add to folder" mode
+  const [selected, setSelected] = useState(() => new Set());
 
   // The board stays visible behind an open series or the add form.
   const lastBoard = useRef(route.name === 'board' ? route : null);
@@ -43,10 +49,78 @@ export default function App() {
     savePrefs({ ...loadPrefs(), sort: filters.sort });
   }, [filters.sort]);
 
-  // Genre and tag chips belong to one library, so clear them when switching.
+  // Genre and tag chips belong to one library, so clear them when switching. Folders do too, so stop picking.
   useEffect(() => {
     setFilters((f) => ({ ...f, genres: [], tags: [] }));
+    setSelecting(false);
+    setSelected(new Set());
   }, [board.library]);
+
+  const stopSelecting = useCallback(() => {
+    setSelecting(false);
+    setSelected(new Set());
+  }, []);
+
+  const toggleSelected = useCallback(
+    (id) =>
+      setSelected((s) => {
+        const next = new Set(s);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    if (!selecting || route.name !== 'board') return undefined;
+    const onKey = (e) => e.key === 'Escape' && stopSelecting();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selecting, route.name, stopSelecting]);
+
+  const { mutate } = lib;
+
+  // Put entries in a folder by name, making the folder if there isn't one yet.
+  const addToFolderNamed = useCallback(
+    (name, ids) => {
+      const existing = foldersFor(lib.library, board.library).find((f) => f.name.toLowerCase() === name.toLowerCase());
+      const newFolderId = newId('f');
+      mutate((l) => {
+        if (!existing) addFolder(l, { id: newFolderId, name, library: board.library });
+        const folder = l.folders.find((f) => f.library === board.library && f.name.toLowerCase() === name.toLowerCase());
+        return addToFolder(l, folder.id, ids);
+      }, `Add ${countText(ids.length)} to folder: ${name}`).catch(() => {});
+      notify(`Added ${countText(ids.length)} to “${existing ? existing.name : name}”.`);
+      stopSelecting();
+    },
+    [lib.library, board.library, mutate, notify, stopSelecting],
+  );
+
+  const dropOnFolder = useCallback(
+    (folder, ids) => {
+      mutate((l) => addToFolder(l, folder.id, ids), `Add ${countText(ids.length)} to folder: ${folder.name}`).catch(() => {});
+      notify(`Added ${countText(ids.length)} to “${folder.name}”.`);
+      stopSelecting();
+    },
+    [mutate, notify, stopSelecting],
+  );
+
+  const editListUrl = useCallback(
+    (f) => {
+      const url = window.prompt(
+        `Link “${f.name}” to the same list on a site, like a Mangago list.\nLeave it empty to remove the link.`,
+        f.listUrl || '',
+      );
+      if (url === null) return;
+      if (url.trim() && !/^https?:\/\/\S+$/i.test(url.trim())) {
+        notify('That isn’t a web address. It should start with https://', 'error');
+        return;
+      }
+      mutate((l) => setFolderListUrl(l, f.id, url), url.trim() ? `List link: ${f.name}` : `Remove list link: ${f.name}`).catch(() => {});
+    },
+    [mutate, notify],
+  );
 
   const folder =
     board.section === 'folder' && lib.library ? lib.library.folders.find((f) => f.id === board.folderId) : null;
@@ -165,7 +239,7 @@ export default function App() {
         <p className="muted">
           {board.section === 'unsorted'
             ? 'Everything is in a folder. Nice.'
-            : 'Open a series and tick this folder to add it. A series can be in as many folders as you like.'}
+            : 'Drag covers onto this folder in the sidebar, or click “Add to folder” and pick them. A series can be in as many folders as you like.'}
         </p>
       </>
     );
@@ -190,6 +264,7 @@ export default function App() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onLock={lock}
+        onDropEntries={dropOnFolder}
       />
       <main className="main">
         {board.section === 'genres' ? (
@@ -216,8 +291,32 @@ export default function App() {
               tags={tags}
               onMenu={() => setDrawerOpen(true)}
               addHref={`#/add?library=${board.library}`}
+              folder={folder}
+              onEditList={editListUrl}
+              selecting={selecting}
+              onSelect={() => (selecting ? stopSelecting() : setSelecting(true))}
+            >
+              {selecting && (
+                <SelectBar
+                  library={lib.library}
+                  libraryId={board.library}
+                  defaultName={folder ? folder.name : ''}
+                  count={selected.size}
+                  onAdd={(name) => addToFolderNamed(name, [...selected])}
+                  onClear={() => setSelected(new Set())}
+                  onCancel={stopSelecting}
+                />
+              )}
+            </Toolbar>
+            <Board
+              entries={shown}
+              store={lib.store}
+              empty={empty}
+              library={lib.library}
+              selecting={selecting}
+              selected={selected}
+              onToggle={toggleSelected}
             />
-            <Board entries={shown} store={lib.store} empty={empty} />
           </>
         )}
       </main>
@@ -244,6 +343,7 @@ export default function App() {
           onClose={closeOverlay}
         />
       )}
+      {route.name === 'sites' && <SitesPage library={lib.library} mutate={lib.mutate} notify={notify} onClose={closeOverlay} />}
 
       {toast && (
         <div key={toast.id} className={`toast toast--${toast.kind}`} role="status" onClick={() => setToast(null)}>

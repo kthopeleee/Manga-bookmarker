@@ -1,0 +1,307 @@
+/* Sites page (SitesPage.jsx). Colours come from the palette variables in styles.css. */
+
+.sites h2 {
+  margin: 0 0 6px;
+}
+
+.sites__lead {
+  margin: 0 0 18px;
+  max-width: 62ch;
+}
+
+.sites__auto {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.sites__auto-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+/* On/off switch: a real checkbox (role="switch") drawn as a track with a sliding knob. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch__track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .switch__track {
+  background: var(--accent);
+}
+
+.switch input:checked + .switch__track::after {
+  transform: translateX(14px);
+}
+
+.switch input:focus-visible + .switch__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__track,
+  .switch__track::after {
+    transition: none;
+  }
+}
+
+.sites__offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--highlight);
+}
+
+.sites__offer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Both columns are as tall as the longer one, so a site can be dropped straight across. */
+.sites__columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.sites__column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sites__column--over {
+  border: 1px solid var(--accent);
+  background: var(--highlight);
+}
+
+.sites__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+
+.sites__count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sites__empty {
+  margin: 0;
+  padding: 18px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sitecard {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: grab;
+}
+
+.sitecard:active {
+  cursor: grabbing;
+}
+
+.sitecard--dragging {
+  opacity: 0.45;
+}
+
+.sitecard--static {
+  cursor: default;
+}
+
+.sitecard__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sitecard__grip {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.sitecard__name {
+  flex: none;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.sitecard__host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sitecard__move {
+  margin-left: auto;
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sitecard__move:hover {
+  text-decoration: underline;
+}
+
+.sitecard__reads {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sitecard__label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sitecard__features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sitecard__features li {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+}
+
+.sitecard__features li::before {
+  content: '✓ ';
+}
+
+.sitecard__features li.is-off {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.sitecard__features li.is-off::before {
+  content: '';
+}
+
+.sitecard__saved {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sites__subhead {
+  margin: 22px 0 8px;
+  font-size: 15px;
+}
+
+.sites__others {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sites__legend {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.sites__legend div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.sites__legend dt {
+  font-weight: 600;
+}
+
+.sites__legend dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 700px) {
+  .sites__columns,
+  .sites__others,
+  .sites__legend div {
+    grid-template-columns: 1fr;
+  }
+
+  .sites__legend div {
+    gap: 0;
+  }
+}

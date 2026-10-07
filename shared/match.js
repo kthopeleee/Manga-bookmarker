@@ -62,3 +62,18 @@ export function findDuplicate(library, s) {
 
   return null;
 }
+
+/**
+ * Entries in the other library with the same title or alternative title as `s` — most likely the
+ * manga of a light novel, or the light novel of a manga. `s`: { id?, title, altTitles?, library }.
+ */
+export function findCounterparts(library, s) {
+  const want = new Set([s.title, ...(s.altTitles || [])].map(normalizeTitle).filter((t) => t.length >= 3));
+  if (!want.size) return [];
+  return library.entries.filter(
+    (e) =>
+      e.id !== s.id &&
+      e.library !== s.library &&
+      [e.title, ...e.altTitles].map(normalizeTitle).some((t) => want.has(t)),
+  );
+}

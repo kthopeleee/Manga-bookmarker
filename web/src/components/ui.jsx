@@ -184,6 +184,9 @@ export function TagAdder({ onAdd, placeholder = 'Add tag…' }) {
   );
 }
 
+/** Choices for a series' reading status, in the same order as the toolbar's status filter. */
+export const STATUS_OPTIONS = [...READING_STATUSES, { id: '', label: 'No status' }];
+
 export function StatusPill({ status }) {
   if (!status) return null;
   const s = READING_STATUSES.find((x) => x.id === status);
@@ -201,6 +204,8 @@ const SITE_NAMES = {
   mangadex: 'MangaDex',
   novelupdates: 'NovelUpdates',
   lunascans: 'LunaScans',
+  asura: 'Asura Scans',
+  borntobenovel: 'BornToBeNovel',
 };
 
 export function siteName(link) {

@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   LIBRARIES,
-  READING_STATUSES,
   addFolder,
   deleteEntry,
   foldersFor,
+  linkEntries,
+  mergeScrapeIntoEntry,
   newId,
+  relatedEntries,
+  unlinkEntries,
   updateEntry,
 } from '@shared/model.js';
+import { findCounterparts, normalizeTitle } from '@shared/match.js';
 import { displayTag, entryTags } from '@shared/tags.js';
 import { nonGenreTags } from '@shared/genres.js';
-import { coverPathFor } from '@shared/github-store.js';
+import { base64ToBytes, coverPathFor } from '@shared/github-store.js';
 import { makeThumbnail } from '@shared/image.js';
 import { Modal } from './Modal.jsx';
 import { CoverImage } from './CoverImage.jsx';
-import { Chip, Segmented, TagAdder, formatDate, pubStatusLabel, siteName } from './ui.jsx';
+import { Chapters } from './Chapters.jsx';
+import { readLinkWithExtension, useExtensionAvailable } from '../lib/extension.js';
+import { Chip, Dropdown, STATUS_OPTIONS, Segmented, StatusPill, TagAdder, formatDate, pubStatusLabel, siteName } from './ui.jsx';
 
 // Local copy of a field while it's being edited, refreshed from the library when not focused.
 function useDraft(value) {
@@ -24,6 +30,102 @@ function useDraft(value) {
     if (!editing.current) setDraft(value);
   }, [value]);
   return [draft, setDraft, editing];
+}
+
+const libraryLabel = (id) => LIBRARIES.find((l) => l.id === id).label;
+
+/** The same story in the other library: the manga of a light novel, or the light novel of a manga. */
+function LinkedSeries({ entry, library, store, mutate }) {
+  const [query, setQuery] = useState('');
+  const [picking, setPicking] = useState(false);
+  const linked = relatedEntries(library, entry);
+  const suggestions = findCounterparts(library, entry).filter((e) => !entry.relatedIds.includes(e.id));
+  const q = normalizeTitle(query);
+  const results = q
+    ? library.entries
+        .filter(
+          (e) =>
+            e.id !== entry.id &&
+            !entry.relatedIds.includes(e.id) &&
+            [e.title, ...e.altTitles].some((t) => normalizeTitle(t).includes(q)),
+        )
+        .sort((a, b) => (a.library === entry.library) - (b.library === entry.library)) // other library first
+        .slice(0, 8)
+    : [];
+
+  const link = (other) => {
+    setQuery('');
+    setPicking(false);
+    mutate((lib) => linkEntries(lib, entry.id, other.id), `Link: ${entry.title} + ${other.title}`).catch(() => {});
+  };
+  const unlink = (other) =>
+    mutate((lib) => unlinkEntries(lib, entry.id, other.id), `Unlink: ${entry.title} + ${other.title}`).catch(() => {});
+
+  const row = (e, action) => (
+    <div key={e.id} className="related">
+      <a className="related__main" href={`#/entry/${encodeURIComponent(e.id)}`} title={`Open ${e.title}`}>
+        <CoverImage entry={e} store={store} className="related__cover" />
+        <span className="related__text">
+          <span className="related__title">{e.title}</span>
+          <span className="related__meta">
+            {libraryLabel(e.library)}
+            {e.lastReadChapter != null && ` · read to ch ${e.lastReadChapter}`}
+          </span>
+        </span>
+        <StatusPill status={e.readingStatus} />
+      </a>
+      {action}
+    </div>
+  );
+
+  return (
+    <div className="field">
+      <span className="field__label">
+        Linked series <em>(the same story as a manga or light novel)</em>
+      </span>
+      {linked.map((e) =>
+        row(
+          e,
+          <button type="button" className="icon-btn" title="Unlink" aria-label={`Unlink ${e.title}`} onClick={() => unlink(e)}>
+            ×
+          </button>,
+        ),
+      )}
+      {suggestions.map((e) =>
+        row(
+          e,
+          <button type="button" className="btn btn--small" title="Same title in your other library" onClick={() => link(e)}>
+            Link
+          </button>,
+        ),
+      )}
+      {picking ? (
+        <div className="related__picker">
+          <input
+            autoFocus
+            placeholder="Search your library by title…"
+            aria-label="Find a series to link"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setPicking(false)}
+          />
+          {results.map((e) =>
+            row(
+              e,
+              <button type="button" className="btn btn--small" onClick={() => link(e)}>
+                Link
+              </button>,
+            ),
+          )}
+          {q && results.length === 0 && <p className="muted related__none">Nothing in your library matches.</p>}
+        </div>
+      ) : (
+        <button type="button" className="linkish related__add" onClick={() => setPicking(true)}>
+          + Link {entry.library === 'novel' ? 'its manga' : 'its light novel'} or another series
+        </button>
+      )}
+    </div>
+  );
 }
 
 function numberOrNull(v) {
@@ -61,6 +163,8 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
   const [newLink, setNewLink] = useState('');
   const [showAllAlt, setShowAllAlt] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(null); // the link the extension is reading
+  const hasExtension = useExtensionAvailable();
   const fileRef = useRef(null);
 
   const folders = foldersFor(library, entry.library);
@@ -69,6 +173,8 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
     entry.chaptersAvailable && entry.lastReadChapter != null
       ? Math.min(100, Math.round((entry.lastReadChapter / entry.chaptersAvailable) * 100))
       : null;
+  const caughtUp =
+    entry.chaptersAvailable != null && entry.lastReadChapter != null && entry.lastReadChapter >= entry.chaptersAvailable;
 
   // ----- field commits -----
   const commitTitle = () => {
@@ -112,6 +218,16 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
     if (n !== entry.chaptersAvailable) save({ chaptersAvailable: n }, `Chapters: ${entry.title}`);
   };
 
+  // Read up to the newest chapter. A series you hadn't started (or only planned) is now one you're reading.
+  const markCaughtUp = () => {
+    const n = entry.chaptersAvailable;
+    lastReadEditing.current = false;
+    setLastRead(n);
+    const patch = { lastReadChapter: n };
+    if (!entry.readingStatus || entry.readingStatus === 'plan') patch.readingStatus = 'reading';
+    save(patch, `Read: ${entry.title} ch. ${n} (caught up)`);
+  };
+
   const bumpLastRead = (delta) => {
     const n = Math.max(0, (numberOrNull(lastRead) ?? 0) + delta);
     setLastRead(n);
@@ -150,7 +266,7 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
     save({ customTags: [...entry.customTags, t] }, `Add tag ${t}: ${entry.title}`);
   };
 
-  const addLink = (e) => {
+  const addLink = async (e) => {
     e.preventDefault();
     const url = newLink.trim();
     setNewLink('');
@@ -162,8 +278,66 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
       notify('That link is not a valid web address.', 'error');
       return;
     }
+    // With the extension, read the page so the link comes with its details; keep the bare link if it can't.
+    if (hasExtension && (await updateFromLink(url, { quiet: true }))) return;
     save({ links: [...entry.links, { site: host, key: null, url }] }, `Add link: ${entry.title}`);
   };
+
+  /**
+   * Read a link with the extension and fill in what it adds: its link, a higher chapter count, new tags and
+   * alternative titles, and the synopsis, authors or cover if the entry has none. The title, the cover you
+   * have, your notes, status and folders stay. So if the site a series came from closes, another site's
+   * page can fill it in again. Returns false if the page couldn't be read.
+   */
+  async function updateFromLink(url, { quiet = false } = {}) {
+    if (refreshing) return false;
+    setRefreshing(url);
+    try {
+      const { fields, cover } = await readLinkWithExtension(url);
+      const site = fields.links[0];
+      let coverPatch = {};
+      if (!entry.coverPath && cover && cover.base64) {
+        const path = coverPathFor(entry.id, cover.type);
+        await store.putFile(path, base64ToBytes(cover.base64), `Cover for ${entry.title}`);
+        coverPatch = { coverPath: path, coverSourceUrl: entry.coverSourceUrl || fields.coverSourceUrl || null };
+      }
+      // A bare link to this site (added by hand, or a chapter page) gives way to the series link the page names.
+      const sameSite = (u) => {
+        try {
+          return site && new URL(u).hostname === new URL(site.url).hostname;
+        } catch {
+          return false;
+        }
+      };
+      const apply = (current) => {
+        const merged = mergeScrapeIntoEntry(current, fields);
+        const links = merged.links.filter((l) => !(site && l.url === url && l.url !== site.url && sameSite(l.url)));
+        return { ...merged, links, ...coverPatch };
+      };
+      const after = apply(entry);
+      const name = siteName(site || { url });
+      await mutate((lib) => {
+        const current = lib.entries.find((x) => x.id === entry.id);
+        return current ? updateEntry(lib, entry.id, apply(current)) : lib;
+      }, `Update from ${name}: ${entry.title}`);
+
+      const changes = [
+        after.links.length > entry.links.length && 'its link',
+        after.chaptersAvailable !== entry.chaptersAvailable && after.chaptersAvailable != null && `${after.chaptersAvailable} chapters`,
+        coverPatch.coverPath && 'a cover',
+        !entry.synopsis && after.synopsis && 'a synopsis',
+        after.scrapedTags.length > entry.scrapedTags.length &&
+          `${after.scrapedTags.length - entry.scrapedTags.length} new ${after.scrapedTags.length - entry.scrapedTags.length === 1 ? 'tag' : 'tags'}`,
+      ].filter(Boolean);
+      notify(changes.length ? `From ${name}: ${changes.join(', ')}.` : `${name} had nothing new.`);
+      return true;
+    } catch (err) {
+      notify(quiet ? `Saved the link. The extension couldn't read it: ${err.message}` : err.message, quiet ? 'info' : 'error');
+      return false;
+    } finally {
+      setRefreshing(null);
+    }
+  }
 
   const removeLink = (url) => save({ links: entry.links.filter((l) => l.url !== url) }, `Remove link: ${entry.title}`);
 
@@ -244,6 +418,18 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
                   <a className="btn btn--primary btn--block" href={l.url} target="_blank" rel="noopener noreferrer">
                     Read on {siteName(l)} ↗
                   </a>
+                  {hasExtension && (
+                    <button
+                      type="button"
+                      className={`icon-btn ${refreshing === l.url ? 'icon-btn--busy' : ''}`}
+                      title={`Update from ${siteName(l)}: chapters, tags, and anything missing`}
+                      aria-label={`Update from ${siteName(l)}`}
+                      disabled={Boolean(refreshing)}
+                      onClick={() => updateFromLink(l.url)}
+                    >
+                      ↻
+                    </button>
+                  )}
                   <button type="button" className="icon-btn" title="Remove link" aria-label={`Remove link to ${siteName(l)}`} onClick={() => removeLink(l.url)}>
                     ×
                   </button>
@@ -252,7 +438,15 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
             </div>
           )}
           <form onSubmit={addLink} className="detail__addlink">
-            <input type="url" placeholder="Add a link (https://…)" value={newLink} onChange={(e) => setNewLink(e.target.value)} aria-label="Add a link" />
+            <input
+              type="url"
+              placeholder={refreshing ? 'Reading the page…' : hasExtension ? 'Add a link from another site (https://…)' : 'Add a link (https://…)'}
+              title={hasExtension ? 'The extension reads the page and fills in anything new from it' : undefined}
+              value={newLink}
+              disabled={Boolean(refreshing)}
+              onChange={(e) => setNewLink(e.target.value)}
+              aria-label="Add a link"
+            />
           </form>
         </div>
 
@@ -282,7 +476,7 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
           </p>
 
           <div className="detail__grid">
-            <label className="field">
+            <div className="field">
               <span className="field__label">Library</span>
               <Segmented
                 label="Library"
@@ -294,19 +488,21 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
                   notify(`Moved to ${LIBRARIES.find((l) => l.id === id).label} › Unsorted.`);
                 }}
               />
-            </label>
-            <label className="field">
+            </div>
+            <div className="field">
               <span className="field__label">Status</span>
-              <select value={entry.readingStatus || ''} onChange={(e) => save({ readingStatus: e.target.value || null }, `Status: ${entry.title}`)}>
-                <option value="">—</option>
-                {READING_STATUSES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Dropdown
+                label="Reading status"
+                value={entry.readingStatus || ''}
+                options={STATUS_OPTIONS}
+                onChange={(status) => {
+                  if (status !== (entry.readingStatus || '')) save({ readingStatus: status || null }, `Status: ${entry.title}`);
+                }}
+              />
+            </div>
           </div>
+
+          <LinkedSeries entry={entry} library={library} store={store} mutate={mutate} />
 
           <div className="field">
             <span className="field__label">Progress</span>
@@ -344,6 +540,19 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               />
               <span className="progress__of">chapters</span>
+              {entry.chaptersAvailable != null &&
+                (caughtUp ? (
+                  <span className="progress__caught-up">✓ Up to date</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn--small btn--primary"
+                    onClick={markCaughtUp}
+                    title={`Set your last-read chapter to ${entry.chaptersAvailable}, the newest one`}
+                  >
+                    I'm caught up
+                  </button>
+                ))}
             </div>
             {progress != null && (
               <div className="bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
@@ -351,6 +560,8 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
               </div>
             )}
           </div>
+
+          <Chapters entry={entry} library={library} mutate={mutate} />
 
           <div className="field">
             <span className="field__label">Folders in {libLabel} {entry.folderIds.length === 0 && <em>(Unsorted)</em>}</span>

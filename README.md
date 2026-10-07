@@ -4,14 +4,20 @@ Bookmark manga and light novels from the sites you read on, and browse them on y
 
 - **Browser extension** (Firefox first, Chrome too). On a series page, click the bookmark button. It reads the title,
   cover, genres, tags, synopsis and chapter count, and lets you pick folders, tags, status and notes before saving.
-  On a chapter page it offers to update your last-read chapter.
+  On a chapter page it offers to update your last-read chapter. When you open the page of a series you've already
+  saved and the site lists more chapters than your library has, the extension saves the new count by itself and the
+  corner badge says how many are new. The same series on a different site (found by its title) also gets that page
+  added to its links. Its title, cover and other links stay as they are.
 - **Your data** lives in a private GitHub repo you own (`library.json` plus a `covers/` folder). Every change is a
-  commit, so the history is your backup.
+  commit, so the history is your backup. Titles, tags, synopses, chapter counts and covers are copied into it, so
+  nothing is lost if a site closes. To read a series somewhere else, add that site's link to it on the website: with
+  the extension, the page is read and fills in anything new. The ↻ next to a link does the same again later.
 - **The website** (`web/`) shows Manga and Light Novels as two shelves, each with All, Unsorted and your folders.
   A series can be in any number of folders. Filter by genre, tag, status or search, and open a series to edit notes,
-  progress, tags, folders and the cover.
+  progress, tags, folders and the cover. **I'm caught up** sets your last-read chapter to the newest one. The Genres
+  screen lists every genre with how many series have it; tick several to find the series that have them.
 
-Sites with their own reader: Mangago, Comix, MangaDex, NovelUpdates, Asura Scans, and scan sites built
+Sites with their own reader: Mangago, Comix, MangaDex, NovelUpdates, Asura Scans, BornToBeNovel, and scan sites built
 on the Madara / MangaThemesia WordPress themes (LunaScans and many others). Any other page falls back to its
 title, image and description.
 

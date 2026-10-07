@@ -10,7 +10,9 @@ import {
   emptyLibrary,
 } from '../shared/model.js';
 import { uniqueTags, displayTag, normalizeTag } from '../shared/tags.js';
-import { findDuplicate } from '../shared/match.js';
+import { createDropdown } from '../lib/dropdown.js';
+import { findCounterparts, findDuplicate } from '../shared/match.js';
+import { libraryForScrape } from '../shared/sites.js';
 
 const app = document.getElementById('app');
 let settings;
@@ -238,15 +240,16 @@ function showChapter() {
 // ---------- series page: preview and save ----------
 
 function showSeriesForm() {
-  const s = scraped;
+  // The section this site's series go to, which the user can change on the website's Sites page.
+  const s = { ...scraped, library: libraryForScrape(library, scraped) };
   const fields = entryFieldsFromScrape(s);
-  const match = findDuplicate(library, { ...s, library: s.library });
+  const match = findDuplicate(library, s);
   const existing = match ? match.entry : null;
   let mode = existing ? 'update' : 'add';
 
   // Form state
   const state = {
-    library: existing ? existing.library : s.library || 'manga',
+    library: existing ? existing.library : s.library,
     readingStatus: existing ? existing.readingStatus : null,
     chaptersAvailable: Math.max(existing?.chaptersAvailable ?? -1, s.chaptersAvailable ?? -1),
     lastReadChapter: existing?.lastReadChapter ?? s.lastReadHint ?? null,
@@ -256,6 +259,7 @@ function showSeriesForm() {
     customTags: existing ? [...existing.customTags] : [],
     folderIds: new Set(existing ? existing.folderIds : []),
     newFolders: [], // { name, library }
+    linkChoices: new Map(), // entry id -> link or not, once clicked
   };
   if (state.chaptersAvailable < 0) state.chaptersAvailable = null;
   state.scrapedTags.forEach((t) => state.selectedScraped.add(t));
@@ -303,6 +307,7 @@ function showSeriesForm() {
             state.library = l.id;
             renderSegmented();
             renderFolders();
+            renderLinks();
           },
         }),
       ),
@@ -320,21 +325,43 @@ function showSeriesForm() {
   );
 
   // Status + chapters
-  const statusSelect = h(
-    'select',
-    { onchange: (e) => (state.readingStatus = e.target.value || null) },
-    h('option', { value: '', text: '—' }),
-    ...READING_STATUSES.map((st) => h('option', { value: st.id, text: st.label, selected: state.readingStatus === st.id })),
-  );
+  // Same dropdown and order as the library website.
+  const statusSelect = createDropdown({
+    label: 'Reading status',
+    options: [...READING_STATUSES, { id: '', label: 'No status' }],
+    value: state.readingStatus || '',
+    onChange: (status) => (state.readingStatus = status || null),
+  });
   const availInput = h('input', { type: 'number', min: '0', step: 'any', value: state.chaptersAvailable ?? '' });
   const readInput = h('input', { type: 'number', min: '0', step: 'any', value: state.lastReadChapter ?? '' });
+  // Last read = the newest chapter. A series you hadn't started (or only planned) becomes one you're reading.
+  const caughtUpBtn = h('button', {
+    type: 'button',
+    class: 'link-btn caught-up',
+    text: "I'm caught up",
+    title: 'Set last read to the newest chapter',
+    onclick: () => {
+      readInput.value = availInput.value;
+      if (!statusSelect.value || statusSelect.value === 'plan') {
+        statusSelect.value = 'reading';
+        state.readingStatus = 'reading';
+      }
+      syncCaughtUp();
+    },
+  });
+  const syncCaughtUp = () => {
+    caughtUpBtn.hidden = availInput.value === '' || (readInput.value !== '' && Number(readInput.value) >= Number(availInput.value));
+  };
+  availInput.addEventListener('input', syncCaughtUp);
+  readInput.addEventListener('input', syncCaughtUp);
+  syncCaughtUp();
   nodes.push(
     h(
       'div',
       { class: 'field row' },
-      h('div', {}, h('span', { class: 'field-label', text: 'Status' }), statusSelect),
+      h('div', {}, h('span', { class: 'field-label', text: 'Status' }), statusSelect.element),
       h('div', {}, h('span', { class: 'field-label', text: 'Chapters' }), availInput),
-      h('div', {}, h('span', { class: 'field-label', text: 'Last read' }), readInput),
+      h('div', {}, h('span', { class: 'field-label', text: 'Last read' }), readInput, caughtUpBtn),
     ),
   );
 
@@ -447,6 +474,45 @@ function showSeriesForm() {
     ),
   );
 
+  // Linked series: the same story in the other library (the manga of this novel, or the novel of this manga)
+  const libLabel = (id) => LIBRARIES.find((l) => l.id === id).label;
+  const linkField = h('div', { class: 'field' });
+  const linkSuggestions = () =>
+    findCounterparts(library, { id: existing?.id, title: titleInput.value.trim(), altTitles: s.altTitles, library: state.library }).filter(
+      (e) => !(existing && existing.relatedIds.includes(e.id)),
+    );
+  // Linked by default when there's exactly one match, as the right-click save does.
+  const wantsLink = (e, suggestions) => (state.linkChoices.has(e.id) ? state.linkChoices.get(e.id) : suggestions.length === 1);
+  function renderLinks() {
+    const linked = existing ? existing.relatedIds.map((id) => library.entries.find((e) => e.id === id)).filter(Boolean) : [];
+    const suggestions = linkSuggestions();
+    linkField.hidden = !linked.length && !suggestions.length;
+    linkField.replaceChildren(
+      h('span', { class: 'field-label', text: 'Linked series' }),
+      h(
+        'div',
+        { class: 'chips' },
+        ...linked.map((e) => h('button', { type: 'button', class: 'chip', 'aria-pressed': 'true', disabled: true, text: `🔗 ${libLabel(e.library)}: ${e.title}` })),
+        ...suggestions.map((e) =>
+          h('button', {
+            type: 'button',
+            class: 'chip',
+            'aria-pressed': String(wantsLink(e, suggestions)),
+            text: `${libLabel(e.library)}: ${e.title}`,
+            title: 'Same title in your other library. Click to link them or not.',
+            onclick: () => {
+              state.linkChoices.set(e.id, !wantsLink(e, suggestions));
+              renderLinks();
+            },
+          }),
+        ),
+      ),
+    );
+  }
+  titleInput.addEventListener('input', renderLinks);
+  renderLinks();
+  nodes.push(linkField);
+
   // Notes
   const notesInput = h('textarea', { rows: 3, placeholder: 'Characters, where you stopped, anything to remember…' });
   notesInput.value = state.notes;
@@ -485,6 +551,8 @@ function showSeriesForm() {
       folderIds: [...state.folderIds].filter((id) => library.folders.some((f) => f.id === id && f.library === state.library)),
       newFolders: state.newFolders.filter((f) => f.library === state.library).map((f) => f.name),
     };
+    const suggestions = linkSuggestions();
+    user.linkIds = suggestions.filter((e) => wantsLink(e, suggestions)).map((e) => e.id);
 
     let res;
     try {
@@ -502,8 +570,9 @@ function showSeriesForm() {
         ? library.folders.filter((f) => saved.folderIds.includes(f.id)).map((f) => f.name)
         : [...user.newFolders];
       const where = folderNames.length ? folderNames.join(', ') : 'Unsorted';
-      const libLabel = LIBRARIES.find((l) => l.id === user.library).label;
-      return showDone(`${mode === 'update' ? 'Updated' : 'Saved'} to ${libLabel} › ${where}.`, res.entryId);
+      const linkedTitles = user.linkIds.map((id) => library.entries.find((e) => e.id === id)).filter(Boolean).map((e) => `“${e.title}”`);
+      const linked = linkedTitles.length ? ` Linked with ${linkedTitles.join(', ')}.` : '';
+      return showDone(`${mode === 'update' ? 'Updated' : 'Saved'} to ${libLabel(user.library)} › ${where}.${linked}`, res.entryId);
     }
     saveBtn.disabled = false;
     status.className = 'status error';
