@@ -1,0 +1,68 @@
+/* Book-size slider (SizeSlider.jsx): a small pill pinned to the bottom-right corner of the board.
+   The board's bottom padding leaves room for it, so it never covers the last row for good. */
+
+.sizer {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lift);
+}
+
+.sizer__btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sizer__btn:hover:not(:disabled) {
+  background: var(--highlight);
+  color: var(--text);
+}
+
+.sizer__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sizer__btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.sizer__range {
+  width: 130px;
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 860px) {
+  .sizer {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .sizer__range {
+    width: 110px;
+  }
+}

@@ -18,7 +18,6 @@ import { base64ToBytes, coverPathFor } from '@shared/github-store.js';
 import { makeThumbnail } from '@shared/image.js';
 import { Modal } from './Modal.jsx';
 import { CoverImage } from './CoverImage.jsx';
-import { Chapters } from './Chapters.jsx';
 import { readLinkWithExtension, useExtensionAvailable } from '../lib/extension.js';
 import { Chip, Dropdown, STATUS_OPTIONS, Segmented, StatusPill, TagAdder, formatDate, pubStatusLabel, siteName } from './ui.jsx';
 
@@ -560,8 +559,6 @@ function EntryDetailInner({ entry, library, store, mutate, onClose, notify }) {
               </div>
             )}
           </div>
-
-          <Chapters entry={entry} library={library} mutate={mutate} />
 
           <div className="field">
             <span className="field__label">Folders in {libLabel} {entry.folderIds.length === 0 && <em>(Unsorted)</em>}</span>

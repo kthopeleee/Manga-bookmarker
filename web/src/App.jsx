@@ -14,6 +14,7 @@ import { SettingsPage } from './components/SettingsPage.jsx';
 import { GenresPage } from './components/GenresPage.jsx';
 import { SelectBar } from './components/SelectBar.jsx';
 import { SitesPage } from './components/SitesPage.jsx';
+import { SizeSlider } from './components/SizeSlider.jsx';
 
 const NO_FILTERS = { search: '', genres: [], tags: [], status: 'any' };
 
@@ -29,6 +30,8 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selecting, setSelecting] = useState(false); // "Add to folder" mode
   const [selected, setSelected] = useState(() => new Set());
+  // How wide the books are, from the slider at the bottom; null is the usual size. Kept on this device.
+  const [bookSize, setBookSize] = useState(() => (Number.isFinite(loadPrefs().bookSize) ? loadPrefs().bookSize : null));
 
   // The board stays visible behind an open series or the add form.
   const lastBoard = useRef(route.name === 'board' ? route : null);
@@ -48,6 +51,10 @@ export default function App() {
   useEffect(() => {
     savePrefs({ ...loadPrefs(), sort: filters.sort });
   }, [filters.sort]);
+
+  useEffect(() => {
+    savePrefs({ ...loadPrefs(), bookSize });
+  }, [bookSize]);
 
   // Genre and tag chips belong to one library, so clear them when switching. Folders do too, so stop picking.
   useEffect(() => {
@@ -266,7 +273,7 @@ export default function App() {
         onLock={lock}
         onDropEntries={dropOnFolder}
       />
-      <main className="main">
+      <main className="main" style={bookSize ? { '--book-size': `${bookSize}px` } : undefined}>
         {board.section === 'genres' ? (
           <GenresPage
             board={board}
@@ -319,6 +326,8 @@ export default function App() {
             />
           </>
         )}
+        {/* Hidden while picking covers for a folder: on phones that bar sits where the slider does. */}
+        {!selecting && <SizeSlider value={bookSize} onChange={setBookSize} />}
       </main>
 
       {route.name === 'entry' && (
